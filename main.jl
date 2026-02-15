@@ -87,6 +87,29 @@ if termination_status(model) == MOI.OPTIMAL
         println("  Recipe: $(rpad(row.Name, 40)) Machines: $(round(row.Count, digits=2))")
     end
 
+    # --- POWER CONSUMPTION REPORT ---
+    println("\n--- ⚡ POWER CONSUMPTION ---")
+    total_power = 0.0
+
+    # Calculate power based on running machines
+    for r in data.recipes.Recipe
+        count = value(x_vars[r])
+        if count > 0.001
+            # Find the row in DataFrame to get the Building name
+            # (Note: In a large DB this is slow, but for <200 recipes it's instant)
+            row_idx = findfirst(==(r), data.recipes.Recipe)
+            if row_idx !== nothing
+                b_name = data.recipes.Building[row_idx]
+                mw = get(data.building_power, b_name, 0.0)
+                global total_power += count * mw
+            end
+        end
+    end
+
+    gw_power = total_power / 1000.0
+    println("Total Power Required: $(round(total_power, digits=2)) MW")
+    println("                      $(round(gw_power, digits=3)) GW")
+
 else
     println("❌ No optimal solution found. Status: ", termination_status(model))
 end
