@@ -110,6 +110,57 @@ if termination_status(model) == MOI.OPTIMAL
     println("Total Power Required: $(round(total_power, digits=2)) MW")
     println("                      $(round(gw_power, digits=3)) GW")
 
+    # --- NUCLEAR GENERATION REPORT ---
+    println("\n--- ☢️ NUCLEAR POWER GENERATION ---")
+    total_gen = 0.0
+
+    # Pobieramy poprawne klucze (indeksy) z tablicy zmiennych JuMP
+    valid_recipes = axes(x_vars, 1) # To daje listę wszystkich dostępnych przepisów w modelu
+
+    for (r_name, yield) in data.power_yields
+        # SPRAWDZENIE: Czy ten przepis faktycznie istnieje w modelu?
+        if r_name in valid_recipes
+            count = value(x_vars[r_name])
+            if count > 0.001
+                gen_mw = count * yield
+                # Używamy global, bo jesteśmy w pętli w głównym skrypcie
+                global total_gen += gen_mw
+                println("  Recipe: $(rpad(r_name, 30)) Plants: $(round(count, digits=2))   Output: $(round(gen_mw, digits=1)) MW")
+            end
+        else
+            # Opcjonalnie: wypisz ostrzeżenie, jeśli przepis jest w yields, ale nie w modelu
+            # println("  [Warn] Recipe '$r_name' defined in yields but missing in model variables.")
+        end
+    end
+
+    # Obliczenie netto (musimy użyć global total_power obliczonego wcześniej)
+    net_power = total_gen - total_power
+
+    println("-"^60)
+    println("  Total Nuclear Generation: $(round(total_gen, digits=2)) MW")
+    println("  NET POWER (Gen - Use):    $(round(net_power, digits=2)) MW")
+
+    # # --- NUCLEAR GENERATION REPORT ---
+    # println("\n--- ☢️ NUCLEAR POWER GENERATION ---")
+    # total_gen = 0.0
+
+    # for (r_name, yield) in data.power_yields
+    #     if haskey(x_vars, r_name)
+    #         count = value(x_vars[r_name])
+    #         if count > 0.001
+    #             gen_mw = count * yield
+    #             total_gen += gen_mw
+    #             println("  Recipe: $(rpad(r_name, 30)) Plants: $(round(count, digits=2))   Output: $(round(gen_mw, digits=1)) MW")
+    #         end
+    #     end
+    # end
+
+    # net_power = total_gen - total_power
+    # println("-"^60)
+    # println("  Total Nuclear Generation: $(round(total_gen, digits=2)) MW")
+    # println("  NET POWER (Gen - Use):    $(round(net_power, digits=2)) MW")
+
+
 else
     println("❌ No optimal solution found. Status: ", termination_status(model))
 end

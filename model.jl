@@ -72,10 +72,35 @@ function build_and_solve(data::GameData)
         @constraint(model, extraction_term + production == consumption + sink[item])
     end
 
-    # --- OBJECTIVE FUNCTION ---
-    # Maximize total points
+    # # --- OBJECTIVE FUNCTION ---
+    # # Maximize total points
     
+    # objective_expr = AffExpr(0.0)
+    # for item in data.all_items
+    #     points = get(data.sink_points, item, 0.0)
+    #     if points > 0
+    #         add_to_expression!(objective_expr, points * sink[item])
+    #     end
+    # end
+
+    # @objective(model, Max, objective_expr)
+
+    # --- OBJECTIVE FUNCTION ---
+    # Maximize: (Nuclear Power MW * 1000) + (Sink Points)
+    # Weighting power by 1000 ensures the model prioritizes burning fuel
+    # over sinking the raw rods.
+
     objective_expr = AffExpr(0.0)
+
+    # 1. Add value for Power Generation
+    for (r_name, yield) in data.power_yields
+        if r_name in recipe_names
+            # x[r_name] is the number of active power plants
+            add_to_expression!(objective_expr, 1000.0 * yield * x[r_name])
+        end
+    end
+
+    # 2. Add value for Sink Points (Standard)
     for item in data.all_items
         points = get(data.sink_points, item, 0.0)
         if points > 0

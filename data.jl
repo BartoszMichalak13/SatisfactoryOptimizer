@@ -6,6 +6,7 @@ struct GameData
     resources::Dict{String, Float64}   # Resource Name => Max Limit
     sink_points::Dict{String, Float64} # Item Name => Points
     building_power::Dict{String, Float64} # Building Name => Power Consumption (MW)
+    power_yields::Dict{String, Float64} # Building Name => Power Generation (MW)
     all_items::Vector{String}          # List of every unique item in the game
 end
 
@@ -23,6 +24,41 @@ function load_game_data()
     # --- FILTER: EXCLUDE EQUIPMENT WORKSHOP ---
     filter!(row -> row.Building != "Equipment Workshop ×", df_recipes)
     println("   -> Recipes after filtering Workshop: $(nrow(df_recipes))")
+
+    # Burning: Ficsonium Fuel Rod -> Energy (No Waste!)
+    # Rate: 1 rod/min. Waste: None.
+    # We assume standard Water consumption for the power plant (usually 240-300).
+    push!(df_recipes, (
+        Recipe = "Burn Ficsonium",
+        Building = "Nuclear Power Plant",
+        In1_Name = "Ficsonium Fuel Rod", In1_Rate = 1.0,
+        In2_Name = "Water", In2_Rate = 240.0,
+        In3_Name = "", In3_Rate = 0.0, In4_Name = "", In4_Rate = 0.0,
+        Out1_Name = "", Out1_Rate = 0.0,      # NO WASTE
+        Out2_Name = "", Out2_Rate = 0.0
+    ))
+
+    # --- DEFINE POWER GENERATION YIELDS ---
+    # Map the specific recipe names from your CSV to their MW output.
+    # In Satisfactory, a nuclear plant produces 2500 MW regardless of fuel type.
+    # Since your CSV rates (0.2 for Uranium, 0.1 for Plutonium) match
+    # exactly one generator's consumption, the yield is 2500 MW per recipe instance.
+
+    power_yields = Dict{String, Float64}()
+
+    # Check if these recipes exist in the loaded CSV and assign MW
+    for name in df_recipes.Recipe
+        if name == "Uranium Fuel Rod (burning)"
+            power_yields[name] = 2500.0
+        elseif name == "Plutonium Fuel Rod (burning)"
+            power_yields[name] = 2500.0
+
+        elseif name == "Burn Ficsonium"
+            power_yields[name] = 2500.0
+        end
+    end
+
+    println("   -> Defined power yields for $(length(power_yields)) recipes.")
 
     # --- FIX: DEDUPLICATE RECIPE NAMES ---
     # JuMP requires unique indices. If "Turbo Rifle Ammo" appears twice,
@@ -94,5 +130,5 @@ function load_game_data()
         end
     end
 
-  return GameData(df_recipes, resources, sink_points, building_power, collect(items_set))
+  return GameData(df_recipes, resources, sink_points, building_power, power_yields, collect(items_set))
 end
